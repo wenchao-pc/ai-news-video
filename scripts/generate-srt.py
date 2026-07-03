@@ -3,10 +3,12 @@
 从 news-data.json + 音频时长生成 SRT 字幕文件。
 
 时间轴模型（与 compose-video.ts 一致）：
-  - 每段音频播放后停顿 1s + 转场 1s（共 2s pad）
-  - xfade 转场重叠 1s，所以下一段音频在 前段音频结束 + 1s 处开始
-  - seg 0 起始 = 0
-  - seg i 起始 = sum(dur[0..i-1]) + i * 1.0
+  - 每段视频时长 = audio_dur + 2s（末尾 1s 停顿 + 1s xfade 区）
+  - 视频用 xfade 转场（每次缩短 1s），最终视频总时长 = sum(Ai) + N + 1
+  - 音频用 concat + atrim 截断
+  - 视频显示节奏：段 0 在 [0, A0+1]，段 i 在 [sum(A0..Ai-1)+i+1, ...]
+  - 音频说话节奏：段 i 在 [sum(A0..Ai-1)+2i, sum(A0..Ai-1)+2i+Ai]
+  - 字幕应该跟视频画面走而不是跟音频走（音频在 xfade 期间是静音 padding）
 
 用法:
   python3 scripts/generate-srt.py --data output/news-data.json --audio-dir output/run-XXX/audio --out output/run-XXX/subtitles.srt
@@ -102,44 +104,45 @@ def main():
     if data.get("outro", {}).get("script"):
         entries.append(("99_outro.mp3", data["outro"]["script"]))
 
-    # 计算时间轴
+    # 计算时间轴（跟视频画面走，不跟音频）
     srt_entries = []  # [(start, end, text)]
-    time_cursor = 0.0
     pause_per_segment = 1.0  # 与 compose-video.ts 的 pauseDur 一致
+    seg_video_offset = 0.0  # 段 i 视频显示起点
 
     for seg_idx, (audio_file, script) in enumerate(entries):
         audio_path = os.path.join(args.audio_dir, audio_file)
         if not os.path.exists(audio_path):
             print(f"⚠ 音频不存在，跳过: {audio_path}", file=sys.stderr)
             continue
-        
+
         dur = get_audio_duration(audio_path)
-        
-        # 本段在最终视频中的起始时间
-        seg_start = time_cursor
-        
+
+        # 段 i 视频显示起点 = sum(dur[0..i-1]) + i + 1（前 1s 是段 i-1 的停顿填充画面，
+        # 然后是 xfade 1s 重叠，最后才是段 i 的纯显示）
+        seg_start = seg_video_offset
+
         # 断句
         sentences = split_sentences(script)
-        
+
         # 按字数比例分配时间
         total_chars = sum(len(s) for s in sentences)
         char_cursor = 0.0
-        
+
         for sent in sentences:
             sent_start = seg_start + (char_cursor / total_chars) * dur
             char_cursor += len(sent)
             sent_end = seg_start + (char_cursor / total_chars) * dur
-            
+
             # 最后一句话不要超出音频结束
             sent_end = min(sent_end, seg_start + dur)
-            
+
             # 去掉字幕中的标点符号（更干净的阅读体验）
             clean_sent = re.sub(r'[，。！？；：、\u201c\u201d\u2018\u2019「」（）()\.,;:!?\'"]', '', sent).strip()
             if clean_sent:
                 srt_entries.append((sent_start, sent_end, clean_sent))
-        
-        # 更新时间游标（下一段的起始 = 本段音频结束 + 1s 停顿）
-        time_cursor = seg_start + dur + pause_per_segment
+
+        # 段 i 视频结束 = seg_start + dur + 1（最后 1s 是 xfade 区，显示段 i+1 的画面）
+        seg_video_offset = seg_start + dur + pause_per_segment
 
     # 写 SRT
     with open(args.out, "w", encoding="utf-8") as f:
@@ -149,7 +152,7 @@ def main():
             f.write(f"{text}\n\n")
     
     print(f"✅ SRT 生成完毕 → {args.out}")
-    print(f"   字幕条目: {len(srt_entries)} | 总时长: {time_cursor:.1f}s")
+    print(f"   字幕条目: {len(srt_entries)} | 总时长: {seg_video_offset:.1f}s")
 
 
 if __name__ == "__main__":

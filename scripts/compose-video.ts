@@ -160,13 +160,13 @@ function parseArgs() {
     process.exit(1);
   }
 
-  // ── Step 2: 拼接（先停顿1秒，再转场，音视频同步重叠）──
+  // ── Step 2: 拼接（先停顿1秒，再转场）──
   console.log(`\n━━━ Step 2: 拼接 (${segments.length}段, 停顿1s + 转场${td}s) ━━━`);
 
   // 策略：
   // 1. 每段视频尾部加 (1秒停顿 + td秒转场区) 的冻结帧 + 静音
-  // 2. xfade offset 落在尾延最末 td 秒，即：音频播完→停顿1秒→转场
-  // 3. 音频用 acrossfade d=td 同步重叠，与视频 xfade 重叠量一致，保证音画同步
+  // 2. 视频用 xfade 转场，offset 落在尾延最末 td 秒
+  // 3. 音频用 concat 直接拼接（不做 acrossfade），避免转场期间音频被淡入
 
   const pauseDur = 1.0; // 停顿 1 秒
   const padDur = pauseDur + td; // 总尾延
@@ -191,9 +191,9 @@ function parseArgs() {
     paddedSegs.push({ file: paddedFile, duration: seg.duration + padDur });
   }
 
-  // Step 2b: xfade 拼接
-  // offset = 累计时长 - td（转场只在尾延的最后 td 秒发生，前面 pauseDur 秒是纯停顿）
-  let filter = "";
+  // Step 2b: 视频用 xfade，音频用 concat（不做交叉淡化）
+  let videoFilter = "";
+  let audioFilter = "";
   const inputs = paddedSegs.map((s, i) => `-i "${s.file}"`).join(" ");
 
   let cumulativeDur = paddedSegs[0].duration;
@@ -206,22 +206,32 @@ function parseArgs() {
     const vOut = i < paddedSegs.length - 1 ? `[v${i}]` : "[vout]";
     const aOut = i < paddedSegs.length - 1 ? `[a${i}]` : "[aout]";
 
-    filter += `${prevVideoLabel}[${i}:v]xfade=transition=${trans}:duration=${td}:offset=${offset.toFixed(3)}${vOut};`;
-    filter += `${prevAudioLabel}[${i}:a]acrossfade=d=${td}:c1=tri:c2=tri${aOut};`;
+    // 视频：xfade 转场
+    videoFilter += `${prevVideoLabel}[${i}:v]xfade=transition=${trans}:duration=${td}:offset=${offset.toFixed(3)}${vOut};`;
+    // 音频：concat 直接拼接（不淡入不淡出）
+    audioFilter += `${prevAudioLabel}[${i}:a]concat=n=2:v=0:a=1${aOut};`;
 
     prevVideoLabel = vOut;
     prevAudioLabel = aOut;
     cumulativeDur += paddedSegs[i].duration - td;
   }
 
-  filter = filter.replace(/;$/, "");
+  videoFilter = videoFilter.replace(/;$/, "");
+  audioFilter = audioFilter.replace(/;$/, "");
 
-  const totalDur = cumulativeDur;
+  // 合并 filter：xfade 和 concat 各自独立链路
+  // 注意：xfafe 会缩短视频时长（每次减 td），但音频 concat 保持原始长度
+  // 为保持音画同步，音频也需要和视频一样缩短。用 atrim 截断到视频总时长
+  const totalVideoDur = cumulativeDur;
+
+  const filter = `${videoFilter};${audioFilter};[aout]atrim=duration=${totalVideoDur.toFixed(3)}[afinal]`;
+
+  const totalDur = totalVideoDur;
   console.log(`  预计总时长: ${totalDur.toFixed(1)}s`);
 
   const ffmpegCmd =
     `ffmpeg -y ${inputs} -filter_complex "${filter}" ` +
-    `-map "[vout]" -map "[aout]" ` +
+    `-map "[vout]" -map "[afinal]" ` +
     `-c:v libx264 -pix_fmt yuv420p -r 30 -crf 23 -preset medium ` +
     `-c:a aac -b:a 128k ` +
     `-movflags +faststart ` +
