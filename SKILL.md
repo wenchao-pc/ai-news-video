@@ -1,13 +1,16 @@
 ---
 name: ai-news-video
 description: 从飞书文档或 JSON 数据生成 PPT 风格视频：HTML 渲染 PPT 页面 → MiniMax TTS 口播音频 → FFmpeg 转场合成 MP4。
-version: 0.3.1
+version: 0.5.1
 tags: [video, tts, ffmpeg, ppt, automation]
 ---
-
 # AI News Video — PPT 视频生成流水线
 
 从资讯数据生成带口播配音和转场效果的 PPT 风格视频。详细文档见 `README.md`。
+
+> **0.5.1 变更**：① 硬字幕方案更新——用 imageio-ffmpeg 静态 ffmpeg（自带 libass）替代慢速 brew reinstall；② ffmpeg subtitles filter 引号陷阱记录。
+>
+> **0.5.0 变更**：① TTS 默认音量改为 `--volume 5.0`（之前是 mmx 默认 1.0，mean ≈ -26 dB 偏小）；② 新增 `scripts/generate-srt.py` 字幕生成（见「字幕」节）。
 
 ## 快速使用
 
@@ -52,6 +55,7 @@ npx tsx scripts/make-video.ts --skip-ppt --skip-audio
 | `generate-ppt.ts` | 数据→HTML→PNG（含片头/内容/片尾/封面） |
 | `generate-audio.ts` | 从 JSON 读口播稿→mmx TTS→MP3 |
 | `compose-video.ts` | PNG+MP3→FFmpeg→MP4（xfade 多转场） |
+| `generate-srt.py` | 从 JSON 口播稿+音频时长→SRT 字幕（见「字幕」节） |
 | `organize-output.ts` | 整理输出目录结构 |
 | `preview-templates.ts` | 预览所有模板效果 |
 
@@ -70,11 +74,37 @@ npx tsx scripts/make-video.ts --skip-ppt --skip-audio
 - B站UP主风格，口语化，生动有节奏
 - 80-150字/条（约 15-30 秒口播）
 - 开头用不同钩子词（"来看看这个""这个项目有意思"等），不要用"第N条"
-- 不要出现"技术情报雷达""每日资讯"等品牌词
-- 片头/片尾用通用开场白和结束语
+- **品牌名：默认用 "AI 开源速递"**（片头/片尾/封面 label/最后一条收尾都统一）
+- **主题定位：AI 开源项目与开源模型的介绍**（不要说"开源 AI"等相近但不同的措辞）
+- 片头示例："欢迎来到 AI 开源速递。今天我们介绍 N 个精选的 AI 开源项目和开源模型，覆盖 Agent 框架、新模型和开发者工具三个方向。"
+- 片尾示例："今天的 AI 开源速递就到这里。"
+
+> 不要用"技术情报雷达""每日资讯"等品牌词 —— 用户明确否定了这些旧名称。
 
 ### 转场选择
 根据相邻内容语义选择，同类用平滑转场（fade/dissolve/smoothleft），跨类别或重磅消息用冲击转场（zoomin/circleopen/wipeleft）。
+
+## 音频响度（必读）
+
+mmx TTS 默认输出 mean ≈ -25 dB / peak ≈ -7 dB，**明显偏小**，用户第一次看视频会嫌声音轻。要在生成阶段就把它调响，不要靠 ffmpeg 后处理硬撑。
+
+**首选：调 mmx 的 `--volume` 参数**（1.0–5.0 范围），参考实测值：
+
+| `--volume` | mean | max | 听感 |
+|---|---|---|---|
+| 1.0（mmx 默认）| -25.8 dB | -8.9 dB | 偏小（手机外放听不清）|
+| 3.0 | -16.0 dB | -1.0 dB | 够用但略保守 |
+| 5.0 | -12.1 dB | -0.2 dB | **当前默认 —— 用户确认够响** |
+
+`generate-audio.ts` 已支持 `--volume`（CLI 透传到 mmx），`make-video.ts` 已支持 `--volume`（透传到 generate-audio）。**默认 5.0**，跑出来就是用户认可的响度。如果某次跑出来还嫌小，**不要用 ffmpeg 后处理**（见下方坑），先确认 TTS 阶段就传了 `--volume 5.0`。
+
+**备选：ffmpeg 后处理**（如果脚本暂时改不了），见 `references/audio-loudness.md`。关键坑：
+
+- **loudnorm 之后的 volume 几乎无效**：loudnorm 会把均值拉回到目标 LUFS 附近，再叠 volume 只会被后面的 limiter 拉回，体感响度没增加。
+- **heavy compression 才能提响度**：用 `acompressor threshold=-12dB ratio=20 makeup=18dB` 先把动态压扁，再 `volume=1.5`，最后 `alimiter limit=0.95` 只防真爆。
+- **实测天花板**：TTS 峰值在 -7 dBFS 附近，理论上 mean 最高能到 -10 dB，再大就爆音。
+
+**拼接时不要用 concat demuxer**（`-c copy`）：混合流的时间基/PTS 不同会触发 `Conversion failed!` 或者时间戳乱跳（5 分钟视频变 8 分钟）。用 `filter_complex` 显式 `setpts=PTS-STARTPTS` / `asetpts=PTS-STARTPTS` 串接。
 
 ## 模板
 
@@ -218,9 +248,18 @@ npx tsx scripts/make-video.ts \
 
 ## 输出与交付
 
+**每次任务的标准输出格式**（4 项，缺一不可）：
+1. **标题**：`AI开源速递-YYYY.MM.DD`（从数据 date 字段提取）
+2. **简介**：200 字以内，概括本期项目和模型亮点，按 Agent/模型/工具等方向分类
+3. **封面图**：MEDIA: cover.png
+4. **视频**：MEDIA: final-sub.mp4（带硬字幕版）
+
 - **默认不发飞书**：用户偏好结果直接发给他（在聊天中发 MEDIA: 文件），不需要上传到飞书云空间。
 - 如果视频 >20MB（飞书单文件限制），用 `ffmpeg -crf 28 -preset fast -c:a aac -b:a 96k` 压缩后再发。
 - `lark-cli drive +upload` 仅在用户明确要求上传时使用，需用**相对路径**（cd 到文件目录再执行）。
+- **字幕烧录**：默认输出带硬字幕版（final-sub.mp4），用 imageio-ffmpeg 自带的静态 ffmpeg（带 libass）。字幕无标点（更干净的阅读体验）。
+- **品牌名**：统一用「AI开源速递」，不要用「技术情报雷达」或「今日资讯」等旧名称。
+- **封面是独立图片，不要拼接到视频上**。视频本身已经有 intro 页面作为开场。`generate-ppt.ts` 会输出 `output/cover.png`（或 `output/<run-dir>/slides/_cover.png`，取决于脚本），单独发 MEDIA 即可。如果用 ffmpeg 拼了 cover 段到视频前面，必须撤销。
 
 ## 模板 CSS 调试
 
@@ -230,7 +269,62 @@ npx tsx scripts/make-video.ts \
 - **测试溢出必须用长文本**（200+字符），短文本看不出问题。用 Playwright 检查 `scrollHeight` 确认 CSS 生效。
 - **⚠ 数据层 vs CSS 层双重截断**：不要在 `fetch-feishu.ts` 里把 subtitle 硬截断成 `57字 + "..."`，否则 60 字内容在 44px 字体下只占 ~1.5 行，却因为文本本身含 `"..."` 而看起来"没满 2 行就溢出了"。正确做法：数据层传足文字（≤120字），让 CSS `-webkit-line-clamp` 自然在第 2 行末尾截断加省略号。如果已有 JSON 数据被截断过，用 `raw_text[:120]` 重新生成 subtitle 再重跑。
 
-详见 `references/template-css-pitfalls.md`。
+详见 `references/template-css-pitfalls.md`、`references/audio-loudness.md`。
+
+## 字幕
+
+从口播稿生成 SRT 字幕，无需 ASR——JSON 里的 `script` 字段就是字幕原文，按音频时长对齐时间轴即可。
+
+### 生成 SRT
+
+```bash
+python3 scripts/generate-srt.py \
+  --data output/news-data.json \
+  --audio-dir output/run-XXX/audio \
+  --out output/run-XXX/subtitles.srt
+```
+
+时间轴模型与 `compose-video.ts` 一致：每段音频播放后停顿 1s（`pauseDur`），下一段在 `seg_end + 1s` 处开始。断句按中文标点（。！？；，），每句 ≤25 字，按字数比例分配显示时长。
+
+### 嵌入字幕到视频
+
+⚠️ **Homebrew 的 ffmpeg 8.1 默认不带 `--enable-libass`**，所以 `subtitles` 和 `ass` filter **不可用**（报 `No option name near ...` 或 `Error parsing filterchain`）。不要浪费时间尝试 `force_style` 转义——问题在 ffmpeg 编译选项不在引号。
+
+**可用方案：软字幕（mov_text）**——不重编码视频，秒级完成，但需要播放器支持字幕显示：
+
+```bash
+ffmpeg -y -i final.mp4 -i subtitles.srt \
+  -c copy -c:s mov_text \
+  final-softsub.mp4
+```
+
+**硬字幕（烧入画面）**：需要带 libass 的 ffmpeg。Homebrew ffmpeg 8.1 默认不带 libass，**最快的解决方案是用 imageio-ffmpeg 提供的静态 ffmpeg 二进制**（自带 libass + freetype + fontconfig）：
+
+```bash
+# 安装（秒级）
+pip3 install --user imageio-ffmpeg
+
+# 获取路径
+python3 -c "import imageio_ffmpeg; print(imageio_ffmpeg.get_ffmpeg_exe())"
+# → ~/Library/Python/3.x/lib/python/site-packages/imageio_ffmpeg/binaries/ffmpeg-macos-aarch64-v7.1
+
+# 烧录硬字幕（force_style 里的逗号不需要转义，用 Python subprocess 调用最稳）
+python3 << 'EOF'
+import subprocess
+FFMPEG = "<imageio_ffmpeg_path>"  # 替换为上面输出的路径
+vf = "subtitles=subs.srt:force_style='FontName=PingFang SC,FontSize=22,PrimaryColour=&H00FFFFFF,OutlineColour=&H00000000,BorderStyle=1,Outline=3,Shadow=0,MarginV=55'"
+subprocess.run([FFMPEG, "-y", "-i", "final.mp4", "-vf", vf,
+    "-c:v", "libx264", "-preset", "fast", "-crf", "28", "-pix_fmt", "yuv420p",
+    "-c:a", "aac", "-b:a", "96k", "final-sub.mp4"])
+EOF
+```
+
+如果 Homebrew ffmpeg 被卸载或不可用，可以软链 imageio-ffmpeg 的 ffmpeg 到 `/opt/homebrew/bin/ffmpeg`：
+```bash
+ln -sf "$(python3 -c 'import imageio_ffmpeg; print(imageio_ffmpeg.get_ffmpeg_exe())')" /opt/homebrew/bin/ffmpeg
+```
+
+⚠️ **不要用 `brew reinstall ffmpeg --build-from-source`**：编译耗时长（5-10 分钟），且可能因为锁文件残留失败。imageio-ffmpeg 是即装即用的替代方案。
 
 ## 常见问题
 
@@ -240,3 +334,5 @@ npx tsx scripts/make-video.ts \
 - **mmx TTS 传文本**：用 `--text-file <path>` 写临时文件传递，不要用 `--text`（shell 转义不可靠）
 - **TS 类型错误**：tsconfig.json 已配置，tsx 运行时忽略类型错误直接执行
 - **字体不加载**：确保能访问 Google Fonts，或换本地字体
+- **ffmpeg `subtitles` filter 报 `Error parsing filterchain`**：Homebrew ffmpeg 8.1 不带 libass，见「字幕」节用 imageio-ffmpeg。另外 `force_style` 参数里的逗号在 shell 中会被当 filter 分隔符——用 Python subprocess 直接传参数最稳，不要在 shell 命令里拼 `-vf` 字符串
+- **`brew reinstall ffmpeg` 把 ffmpeg 卸了但没装回来**：如果 reinstall 被 timeout/kill 中断，ffmpeg 二进制会丢失。用 `pip3 install --user imageio-ffmpeg` 立即恢复，然后软链到 `/opt/homebrew/bin/ffmpeg`

@@ -40,6 +40,7 @@ const template = getParam("template") || "terminal";
 const voice = getParam("voice") || "Chinese (Mandarin)_Southern_Young_Man";
 const transition = getParam("transition") || "random";
 const transitionDur = getParam("transition-dur") || "1.0";
+const ttsVolume = getParam("tts-volume") || getParam("volume") || "5.0";  // 默认 5.0，响度足够（mmx 1.0=默认值 ≈ mean -26dB，5.0= mean -12dB）
 const skipPpt = hasFlag("--skip-ppt");
 const skipAudio = hasFlag("--skip-audio");
 const skipVideo = hasFlag("--skip-video");
@@ -94,7 +95,7 @@ if (!skipPpt) {
 // Step 2: Audio
 if (!skipAudio) {
   runStep("Step 2/3: 生成语音音频",
-    `npx tsx scripts/generate-audio.ts --data "${data}" --out "${audioDir}" --voice "${voice}"`
+    `npx tsx scripts/generate-audio.ts --data "${data}" --out "${audioDir}" --voice "${voice}"${ttsVolume ? ` --volume ${ttsVolume}` : ""}`
   );
 } else {
   console.log("\n⏭ 跳过音频生成");

@@ -35,25 +35,29 @@ function parseArgs() {
     out: get("out", path.join(ROOT, "output", "audio")),
     voice: get("voice", DEFAULT_VOICE),
     model: get("model", "speech-2.8-hd"),
+    volume: get("volume", undefined),  // 透传给 mmx TTS；不传则用 mmx 默认
   };
 }
 
 // ── 调用 mmx TTS (写临时文件传文本) ──
-function callMmxTTS(text: string, outPath: string, voice: string, model: string) {
+function callMmxTTS(text: string, outPath: string, voice: string, model: string, volume?: string) {
   const tmpDir = path.join(ROOT, "output", "_tmp_tts");
   fs.mkdirSync(tmpDir, { recursive: true });
   const textFile = path.join(tmpDir, `tts_${Date.now()}.txt`);
   fs.writeFileSync(textFile, text);
 
+  const args = [
+    "speech", "synthesize",
+    "--text-file", textFile,
+    "--voice", voice,
+    "--model", model,
+    "--out", outPath,
+    "--quiet",
+  ];
+  if (volume) args.push("--volume", volume);
+
   try {
-    execFileSync("mmx", [
-      "speech", "synthesize",
-      "--text-file", textFile,
-      "--voice", voice,
-      "--model", model,
-      "--out", outPath,
-      "--quiet",
-    ], {
+    execFileSync("mmx", args, {
       encoding: "utf-8",
       timeout: 60000,
     });
@@ -82,7 +86,7 @@ function withRetry<T>(fn: () => T, label: string, maxRetries = 3): T {
 
 // ── 主流程 ──
 (async () => {
-  const { data: dataPath, out: outDir, voice, model } = parseArgs();
+  const { data: dataPath, out: outDir, voice, model, volume } = parseArgs();
 
   const newsData = JSON.parse(fs.readFileSync(dataPath, "utf-8"));
   fs.mkdirSync(outDir, { recursive: true });
@@ -93,7 +97,7 @@ function withRetry<T>(fn: () => T, label: string, maxRetries = 3): T {
   if (newsData.intro?.script) {
     const text = newsData.intro.script;
     console.log(`🎵 [intro] ${text.substring(0, 50)}...`);
-    withRetry(() => callMmxTTS(text, path.join(outDir, "00_intro.mp3"), voice, model), "TTS[intro]");
+    withRetry(() => callMmxTTS(text, path.join(outDir, "00_intro.mp3"), voice, model, volume), "TTS[intro]");
     console.log(`✔ 00_intro.mp3`);
     scriptsLog.push({ file: "00_intro.mp3", title: "片头", script: text });
   }
@@ -110,7 +114,7 @@ function withRetry<T>(fn: () => T, label: string, maxRetries = 3): T {
     }
 
     console.log(`🎵 [${num}] ${item.title}: ${text.substring(0, 50)}...`);
-    withRetry(() => callMmxTTS(text, path.join(outDir, `${num}_slide.mp3`), voice, model), `TTS[${num}]`);
+    withRetry(() => callMmxTTS(text, path.join(outDir, `${num}_slide.mp3`), voice, model, volume), `TTS[${num}]`);
     console.log(`✔ ${num}_slide.mp3`);
     scriptsLog.push({ file: `${num}_slide.mp3`, title: item.title, script: text });
   }
@@ -119,7 +123,7 @@ function withRetry<T>(fn: () => T, label: string, maxRetries = 3): T {
   if (newsData.outro?.script) {
     const text = newsData.outro.script;
     console.log(`🎵 [outro] ${text.substring(0, 40)}...`);
-    withRetry(() => callMmxTTS(text, path.join(outDir, "99_outro.mp3"), voice, model), "TTS[outro]");
+    withRetry(() => callMmxTTS(text, path.join(outDir, "99_outro.mp3"), voice, model, volume), "TTS[outro]");
     console.log(`✔ 99_outro.mp3`);
     scriptsLog.push({ file: "99_outro.mp3", title: "片尾", script: text });
   }
