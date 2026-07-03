@@ -1,0 +1,22 @@
+{
+  "name": "terminal",
+  "displayName": "终端风（黑底 + 霓虹绿）",
+  "fonts": ["JetBrains Mono:400,500,700"],
+  "variables": {
+    "date": "日期",
+    "category": "分类标签",
+    "title": "主标题",
+    "subtitle": "副标题",
+    "stars": "Stars 数",
+    "today": "今日增长",
+    "language": "语言/平台",
+    "highlight_1": "亮点1",
+    "highlight_2": "亮点2",
+    "highlight_3": "亮点3",
+    "link": "链接",
+    "source": "来源",
+    "metrics_label_1": "指标标签1",
+    "metrics_label_2": "指标标签2",
+    "metrics_label_3": "指标标签3"
+  }
+}

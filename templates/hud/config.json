@@ -1,0 +1,5 @@
+{
+  "name": "hud",
+  "displayName": "HUD 仪表盘风（深蓝黑 + 青色 + 紫红）",
+  "fonts": ["Orbitron:500,700,900", "Inter:400,500,700", "JetBrains Mono:500"]
+}

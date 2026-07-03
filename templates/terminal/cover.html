@@ -1,0 +1,93 @@
+<!DOCTYPE html>
+<html lang="zh">
+<head>
+  <meta charset="UTF-8">
+  <title>Cover</title>
+  <link href="https://fonts.googleapis.com/css2?family=JetBrains+Mono:wght@400;700&display=swap" rel="stylesheet">
+  <style>
+    * { margin: 0; padding: 0; box-sizing: border-box; }
+    html, body { width: 1920px; height: 1080px; overflow: hidden; }
+    body {
+      background: #0a0a0a;
+      color: #00ff88;
+      font-family: 'JetBrains Mono', monospace;
+      display: flex;
+      flex-direction: column;
+      justify-content: center;
+      padding: 0 140px;
+      position: relative;
+    }
+    body::before {
+      content: "";
+      position: absolute;
+      inset: 0;
+      background-image: repeating-linear-gradient(0deg, rgba(0,255,136,0.03) 0 1px, transparent 1px 3px);
+      pointer-events: none;
+    }
+    body::after {
+      content: "";
+      position: absolute;
+      top: 0; left: 0; right: 0;
+      height: 6px;
+      background: linear-gradient(90deg, #00ff88, #00d4ff);
+    }
+    .label {
+      font-size: 28px;
+      color: #00d4ff;
+      letter-spacing: 6px;
+      margin-bottom: 50px;
+    }
+    .title {
+      font-size: 160px;
+      font-weight: 700;
+      color: #00ff88;
+      text-shadow: 0 0 50px #00ff8855;
+      line-height: 1.05;
+      margin-bottom: 40px;
+    }
+    .subtitle {
+      font-size: 44px;
+      color: #00d4ff;
+      margin-bottom: 100px;
+    }
+    .meta {
+      display: flex;
+      gap: 60px;
+      font-size: 32px;
+    }
+    .meta-item {
+      border: 1px solid #00ff8855;
+      padding: 16px 32px;
+      color: #00ff88;
+    }
+    .meta-item .num {
+      font-size: 48px;
+      font-weight: 700;
+    }
+    .meta-item .lbl {
+      font-size: 20px;
+      color: #00d4ffaa;
+      display: block;
+      margin-top: 4px;
+    }
+    .corner {
+      position: absolute;
+      bottom: 60px;
+      right: 140px;
+      font-size: 24px;
+      color: #00ff8844;
+    }
+  </style>
+</head>
+<body>
+  <div class="label">▶ {{date}} · OPEN SOURCE & MODELS</div>
+  <div class="title">{{title}}</div>
+  <div class="subtitle">{{subtitle}}</div>
+  <div class="meta">
+    <div class="meta-item"><span class="num">{{count}}</span><span class="lbl">PROJECTS</span></div>
+    <div class="meta-item"><span class="num">{{duration}}</span><span class="lbl">MINUTES</span></div>
+    <div class="meta-item"><span class="num">{{categories}}</span><span class="lbl">CATEGORIES</span></div>
+  </div>
+  <div class="corner">$ ./generate --all</div>
+</body>
+</html>

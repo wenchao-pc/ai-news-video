@@ -1,0 +1,78 @@
+{
+  "date": "2026-07-02",
+  "intro": {
+    "title": "今日技术情报雷达",
+    "subtitle": "2026年7月2日 · 共5条精选资讯",
+    "script": "大家好，欢迎收看今天的技术情报雷达。今天是2026年7月2日，一共为大家带来5条精选资讯，让我们开始吧。"
+  },
+  "outro": {
+    "title": "今天的情报就到这里",
+    "subtitle": "关注频道 · 明天见 👋",
+    "script": "以上就是今天的技术情报雷达。感谢收看，关注频道获取每日最新资讯，我们明天见。"
+  },
+  "transitions": [
+    { "from": "片头", "to": "DeepSeek-V3.5", "transition": "zoomin" },
+    { "from": "DeepSeek-V3.5", "to": "Ollama 0.5", "transition": "smoothleft" },
+    { "from": "Ollama 0.5", "to": "Llama 4 泄露 benchmarks", "transition": "circleopen" },
+    { "from": "Llama 4 泄露 benchmarks", "to": "Cursor 1亿美元ARR", "transition": "slideleft" },
+    { "from": "Cursor 1亿美元ARR", "to": "Vercel AI SDK 4.0", "transition": "dissolve" },
+    { "from": "Vercel AI SDK 4.0", "to": "片尾", "transition": "fade" }
+  ],
+  "items": [
+    {
+      "category": "🔧 开源与模型",
+      "title": "DeepSeek-V3.5",
+      "subtitle": "突破性多模态融合架构",
+      "metrics": { "stars": "12.3k", "today": "+2.1k", "language": "Python" },
+      "highlights": ["原生 1M 长上下文窗口", "推理成本降低 60%", "多语言能力领先"],
+      "link": "github.com/deepseek-ai/DeepSeek-V3",
+      "source_label": "GitHub Trending",
+      "raw_text": "DeepSeek-V3.5 今日发布，采用全新的多模态融合架构，原生支持 100 万 token 上下文窗口。推理成本相比 V3 降低 60%，在 MMLU、HumanEval、MATH 等基准测试中均取得开源模型最佳成绩。项目上线 24 小时内 GitHub Star 突破 12.3k，今日增长 2.1k，Python 实现，已开放模型权重下载。",
+      "script": "今天有个项目直接杀疯了。DeepSeek刚发布了V3.5版本，用了一个全新的多模态融合架构，最猛的是原生支持100万token的上下文窗口，什么概念呢，就是一整本书丢进去它都能消化。更狠的是推理成本直接砍了六成，对开发者来说太香了。而且MMLU、代码、数学这些基准测试全拿下了开源第一，上线才一天GitHub就涨了一万多星，国产AI这波真的越来越猛了。"
+    },
+    {
+      "category": "🔧 开源与模型",
+      "title": "Ollama 0.5",
+      "subtitle": "本地大模型运行框架重大更新",
+      "metrics": { "stars": "98.4k", "today": "+890", "language": "Go" },
+      "highlights": ["支持 GGUF 模型并发推理", "新增 GPU 内存动态分配", "兼容 OpenAI API 格式"],
+      "link": "github.com/ollama/ollama",
+      "source_label": "GitHub Trending",
+      "raw_text": "Ollama 发布 0.5 大版本更新，这是本地大模型运行框架迄今最重要的升级。新版本支持多个 GGUF 模型同时加载并发推理，新增 GPU 内存动态分配机制，可智能调度显存。同时全面兼容 OpenAI API 格式，方便开发者从 OpenAI 无缝迁移到本地部署。项目总 Star 数已达 98.4k，用 Go 语言编写。",
+      "script": "喜欢在本地跑大模型的朋友注意了，Ollama刚刚更新了0.5大版本，这是它迄今为止最重要的一次升级。现在你可以同时加载多个模型一起推理了，GPU显存也能智能动态分配，不会因为开两个模型就把显卡挤爆。最贴心的是全面兼容OpenAI的API格式，你想从云端切到本地部署，几乎不用改代码。这项目快十万星了，口碑一直很稳。"
+    },
+    {
+      "category": "💬 社区热议",
+      "title": "Llama 4 泄露 benchmarks 震撼社区",
+      "subtitle": "多模态基准全面超越 GPT-4o",
+      "metrics": { "upvotes": "3.2k", "comments": "890", "language": "Reddit" },
+      "highlights": ["MMLU 得分 92.1 创开源新高", "代码生成超越 Claude Sonnet", "Meta 官方尚未回应"],
+      "link": "reddit.com/r/LocalLLaMA",
+      "source_label": "Reddit r/LocalLLaMA",
+      "raw_text": "Reddit r/LocalLLaMA 社区今日炸锅，有人泄露了 Meta Llama 4 的内部 benchmark 数据。据泄露信息显示，Llama 4 在 MMLU 测试中得分 92.1，创下开源模型新高；代码生成能力超越 Claude Sonnet；多模态基准全面超越 GPT-4o。帖子获得 3200+ upvotes 和 890 条评论，但 Meta 官方至今未回应此事，真实性存疑。",
+      "script": "Reddit上今天有个帖子直接炸了，有人泄露了Meta下一代Llama 4的内部测试数据。据说MMLU考了92.1分，创下开源模型新纪录，代码能力还超过了Claude Sonnet，多模态测试全面碾压GPT-4o。帖子三千多赞八百多条评论，大家都在讨论是真是假。不过Meta官方到现在还没出来回应，到底是不是真的还得等官宣，如果数据属实，那开源AI真要变天了。"
+    },
+    {
+      "category": "💰 产品与商业",
+      "title": "Cursor 突破 1 亿美元 ARR",
+      "subtitle": "AI 编程工具的商业化里程碑",
+      "metrics": { "valuation": "$2.5B", "growth": "+300%", "language": "SaaS" },
+      "highlights": ["付费用户超 50 万开发者", "企业版客户增长 5 倍", "正在开发 Agent 模式"],
+      "link": "cursor.com",
+      "source_label": "Techmeme",
+      "raw_text": "AI 编程工具 Cursor 宣布年经常性收入（ARR）突破 1 亿美元，估值达 25 亿美元，成为 AI 编程赛道首个达到此里程碑的产品。目前付费用户超过 50 万开发者，企业版客户数量同比增长 5 倍。团队正在开发全自动 Agent 模式，可独立完成复杂编程任务。Techmeme 等多家科技媒体报道了这一消息。",
+      "script": "Cursor这家公司可能有些朋友还不太熟，但程序员肯定知道。就是那个用AI帮你写代码的工具，最近刚宣布年收入突破一亿美元了，估值飙到25亿美元，是AI编程赛道第一个跑到这个里程碑的产品。现在有50多万开发者在付费使用，企业客户一年涨了五倍。他们还在搞一个全自动Agent模式，AI自己就能完成复杂编程任务，这个方向非常值得期待。"
+    },
+    {
+      "category": "💰 产品与商业",
+      "title": "Vercel AI SDK 4.0 发布",
+      "subtitle": "全栈 AI 应用开发框架大升级",
+      "metrics": { "stars": "15.2k", "today": "+1.5k", "language": "TypeScript" },
+      "highlights": ["内置多模型路由和 failover", "新增 RAG 流式渲染组件", "Edge Runtime 延迟降低 40%"],
+      "link": "github.com/vercel/ai",
+      "source_label": "Product Hunt",
+      "raw_text": "Vercel 在 Product Hunt 发布了 AI SDK 4.0 大版本更新。这是全栈 AI 应用开发框架的重大升级：内置多模型智能路由和故障自动转移机制，新增 RAG 流式渲染组件让检索增强生成开箱即用，Edge Runtime 优化使响应延迟降低 40%。项目用 TypeScript 编写，今日 GitHub Star 增长 1.5k。",
+      "script": "做AI应用开发的朋友看过来，Vercel刚刚发布了AI SDK 4.0大版本。这次升级非常实在，内置了多模型智能路由和故障自动转移，一个模型挂了自动切另一个。还新增了RAG流式渲染组件，检索增强生成直接开箱即用。Edge Runtime也做了优化，响应延迟降低了四成。用TypeScript写的，今天Star就涨了一千五，感兴趣的去试试。"
+    }
+  ]
+}
