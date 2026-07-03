@@ -65,11 +65,22 @@ function loadTransitions(audioDir: string, count: number, mode: string): string[
 
 // ── 获取音频时长 (秒) ──
 function getAudioDuration(audioPath: string): number {
-  const out = execSync(
-    `ffprobe -v quiet -show_entries format=duration -of csv=p=0 "${audioPath}"`,
-    { encoding: "utf-8", stdio: "pipe" }
-  ).trim();
-  return parseFloat(out);
+  try {
+    const out = execSync(
+      `ffprobe -v quiet -show_entries format=duration -of csv=p=0 "${audioPath}"`,
+      { encoding: "utf-8", stdio: ["pipe", "pipe", "pipe"] }
+    ).trim();
+    return parseFloat(out);
+  } catch {
+    // fallback: 用 ffmpeg -i 解析 Duration（ffprobe 不可用时）
+    const out = execSync(
+      `ffmpeg -i "${audioPath}" 2>&1 || true`,
+      { encoding: "utf-8" }
+    );
+    const m = out.match(/Duration:\s*(\d+):(\d+):(\d+\.\d+)/);
+    if (m) return parseInt(m[1]) * 3600 + parseInt(m[2]) * 60 + parseFloat(m[3]);
+    return 0;
+  }
 }
 
 // ── CLI ──
