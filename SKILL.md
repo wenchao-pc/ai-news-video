@@ -50,7 +50,7 @@ Agent 读取 `output/run-XXX/news-data.json`，完成以下工作并写回：
 npx tsx scripts/make-video.ts --data output/run-XXX/news-data.json
 ```
 
-输出到同一个 run 目录：`final.mp4`、`cover.png`、`slides/`、`audio/`。
+make-video 直接使用 `--data` 所在目录作为输出目录（不创建新 run 目录），所有产物（`final.mp4`、`cover.png`、`slides/`、`audio/`）都落在同一个 run 目录里。
 
 ### Step 4: 生成字幕 + 烧录硬字幕
 
@@ -64,7 +64,7 @@ python3 scripts/generate-srt.py \
 # 烧录硬字幕（用 imageio-ffmpeg 的 ffmpeg，自带 libass）
 FFMPEG=$(python3 -c "import imageio_ffmpeg; print(imageio_ffmpeg.get_ffmpeg_exe())")
 $FFMPEG -y -i output/run-XXX/final.mp4 \
-  -vf "subtitles=output/run-XXX/subtitles.srt:force_style='FontName=PingFang SC,FontSize=22,PrimaryColour=&H00FFFFFF,OutlineColour=&H00000000,BorderStyle=1,Outline=3,Shadow=0,MarginV=55'" \
+  -vf "subtitles=output/run-XXX/subtitles.srt:force_style='FontName=PingFang SC,FontSize=22,PrimaryColour=&H00FFFFFF,OutlineColour=&H00000000,BorderStyle=1,Outline=3,Shadow=0,MarginV=35'" \
   -c:v libx264 -preset fast -crf 28 -pix_fmt yuv420p \
   -c:a aac -b:a 96k \
   output/run-XXX/final-sub.mp4
@@ -89,12 +89,12 @@ npx tsx scripts/make-video.ts --out /tmp/my-video.mp4
 
 | 脚本 | 功能 |
 |------|------|
-| `fetch-feishu.ts` | 飞书文档→JSON（提取 raw_text） |
-| `make-video.ts` | 一键入口（编排 PPT→音频→视频） |
+| `fetch-feishu.ts` | 飞书文档→JSON（提取 raw_text，自动建 run 目录） |
+| `make-video.ts` | 一键入口（PPT→音频→视频，直接使用 `--data` 所在目录） |
 | `generate-ppt.ts` | 数据→HTML→PNG（含片头/内容/片尾/封面） |
 | `generate-audio.ts` | 口播稿→mmx TTS→MP3（支持 `--volume`） |
-| `compose-video.ts` | PNG+MP3→FFmpeg→MP4（xfade 转场） |
-| `generate-srt.py` | 口播稿+音频时长→SRT 字幕 |
+| `compose-video.ts` | PNG+MP3→FFmpeg→MP4（xfade 转场 + audio concat） |
+| `generate-srt.py` | 口播稿+音频时长→SRT 字幕（时间轴跟视频画面走） |
 
 ## Agent 生成口播稿的要求
 
@@ -105,6 +105,10 @@ npx tsx scripts/make-video.ts --out /tmp/my-video.mp4
 - **主题定位：AI 开源项目与开源模型的介绍**
 - 片头示例："欢迎来到 AI 开源速递。今天我们介绍 N 个精选的 AI 开源项目和开源模型，覆盖 Agent 框架、新模型和开发者工具三个方向。"
 - 片尾示例："今天的 AI 开源速递就到这里。"
+- **开场白和结束语只出现在 `intro.script` 和 `outro.script` 里，不要塞进任何 item 的 script**
+  - `intro.script`：开场白（"欢迎来到 AI 开源速递..."）
+  - `outro.script`：结束语（"今天的 AI 开源速递就到这里..."）
+  - 每条 `items[].script`：只介绍该条项目内容，最后一条也不例外，不要在末尾加"今天就到这里"
 
 ### 转场选择
 
@@ -187,7 +191,10 @@ npx tsx scripts/make-video.ts --out /tmp/my-video.mp4
 
 详见 `references/` 目录各文档。关键提醒：
 
+- **SRT 时间轴必须跟视频画面走，不跟音频走**（`references/video-compositing-pitfalls.md` §1）。`acrossfade` 配 `xfade` 会让转场后首字变小声，改用 `concat` + `atrim`（§2）
+- **Homebrew ffmpeg 默认不带 libass**（§3），用 imageio-ffmpeg 的静态 ffmpeg。**不要 `brew reinstall ffmpeg --build-from-source`**（§4），会丢二进制
+- **ffmpeg `force_style` 引号陷阱**（§5）：用 Python `subprocess.run` 直接传 `-vf` 参数最稳
+- **cover.png 必须输出到 run 目录**（§6），不能写死到 `output/cover.png`（会互相覆盖）
+- **fetch-feishu 和 make-video 共享 run 目录**（§7）：Agent 把 fetch 的 run 路径直接传给 make-video 的 `--data`
 - **mmx TTS 传文本**用 `--text-file`，不要用 `--text`（shell 转义不可靠）
-- **ffmpeg subtitles filter 报错**：Homebrew ffmpeg 不带 libass，用 imageio-ffmpeg 的静态 ffmpeg
-- **ffmpeg `subtitles` filter 的 `force_style` 引号陷阱**：在 shell 里 `-vf` 中的 `force_style` 逗号会被当 filter 分隔符，各种转义都不稳定。最稳的方式是用 Python `subprocess.run([ffmpeg, ..., "-vf", vf])` 直接传参数（不经 shell）
-- **不要 `brew reinstall ffmpeg --build-from-source`**：慢且可能失败，imageio-ffmpeg 即装即用
+- **字幕位置**：1920x1080 + terminal 模板下 MarginV=35 用户确认舒服
