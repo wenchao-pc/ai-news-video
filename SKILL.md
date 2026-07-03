@@ -5,9 +5,9 @@ version: 0.3.1
 tags: [video, tts, ffmpeg, ppt, automation]
 ---
 
-# News Brief Video — PPT 视频生成流水线
+# AI News Video — PPT 视频生成流水线
 
-从资讯数据生成带口播配音和转场效果的 PPT 风格视频。
+从资讯数据生成带口播配音和转场效果的 PPT 风格视频。详细文档见 `README.md`。
 
 ## 快速使用
 
@@ -183,17 +183,38 @@ npx tsx scripts/make-video.ts --skip-ppt --skip-audio
 
 ## 输出目录结构
 
+每次运行 `make-video.ts` 默认生成**独立的时间戳目录**，保留所有中间产物，多次运行互不覆盖：
+
 ```
 output/
-├── cover.png           ← 视频封面
-├── final.mp4           ← 最终视频
-├── data/               ← 数据文件
-│   ├── news-data.json
-│   ├── scripts.json    ← 口播稿记录
-│   └── transitions.json
-├── slides/             ← PPT 页面 PNG + manifest.json
-└── audio/              ← MP3 音频
+└── run-20260703-104001/         ← 每次运行一个独立目录（YYYYMMDD-HHmmss）
+    ├── slides/                  ← PPT 页面 PNG + manifest.json
+    │   ├── 00_intro.png
+    │   ├── 01_xxx.png
+    │   ├── 99_outro.png
+    │   └── manifest.json
+    ├── audio/                   ← MP3 音频（每页一段）
+    │   ├── 00_intro.mp3
+    │   ├── 01_xxx.mp3
+    │   └── 99_outro.mp3
+    └── final.mp4                ← 最终视频
 ```
+
+**自定义输出**：用 `--out <path>` 指定完整输出文件路径（仍会写一份中间文件到独立目录，最终视频另存到指定路径）：
+
+```bash
+npx tsx scripts/make-video.ts --out /tmp/my-video.mp4
+```
+
+**复用历史中间产物**：从某次运行的目录恢复，跳过对应步骤：
+
+```bash
+npx tsx scripts/make-video.ts \
+  --data output/run-20260701-080000/news-data.json \
+  --skip-ppt --skip-audio
+```
+
+**清理**：可直接删除任意 `output/run-*/` 目录；历史数据 JSON 在 `output/data/`。
 
 ## 输出与交付
 
