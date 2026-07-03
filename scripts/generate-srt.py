@@ -104,10 +104,12 @@ def main():
     if data.get("outro", {}).get("script"):
         entries.append(("99_outro.mp3", data["outro"]["script"]))
 
-    # 计算时间轴（跟视频画面走，不跟音频）
+    # 计算时间轴（跟音频走：seg0 从 0 开始，每段间隔 2s padding）
+    # seg i>0 有 td=1s 前置静音 padding，但 compose-video 的 acrossfade
+    # 会让音频总长和视频同步缩短，所以每段间隔就是 padDur=2s
     srt_entries = []  # [(start, end, text)]
-    pause_per_segment = 1.0  # 与 compose-video.ts 的 pauseDur 一致
-    seg_video_offset = 0.0  # 段 i 视频显示起点
+    time_cursor = 0.0
+    pad_per_segment = 1.0  # padDur(2s) - acrossfade 重叠 td(1s) = 实际间隔 1s
 
     for seg_idx, (audio_file, script) in enumerate(entries):
         audio_path = os.path.join(args.audio_dir, audio_file)
@@ -117,9 +119,8 @@ def main():
 
         dur = get_audio_duration(audio_path)
 
-        # 段 i 视频显示起点 = sum(dur[0..i-1]) + i + 1（前 1s 是段 i-1 的停顿填充画面，
-        # 然后是 xfade 1s 重叠，最后才是段 i 的纯显示）
-        seg_start = seg_video_offset
+        # 段 i 音频说话起点
+        seg_start = time_cursor
 
         # 断句
         sentences = split_sentences(script)
@@ -141,8 +142,8 @@ def main():
             if clean_sent:
                 srt_entries.append((sent_start, sent_end, clean_sent))
 
-        # 段 i 视频结束 = seg_start + dur + 1（最后 1s 是 xfade 区，显示段 i+1 的画面）
-        seg_video_offset = seg_start + dur + pause_per_segment
+        # 下一段说话起点 = 本段音频结束 + 2s padding
+        time_cursor = seg_start + dur + pad_per_segment
 
     # 写 SRT
     with open(args.out, "w", encoding="utf-8") as f:
@@ -152,7 +153,7 @@ def main():
             f.write(f"{text}\n\n")
     
     print(f"✅ SRT 生成完毕 → {args.out}")
-    print(f"   字幕条目: {len(srt_entries)} | 总时长: {seg_video_offset:.1f}s")
+    print(f"   字幕条目: {len(srt_entries)} | 总时长: {time_cursor:.1f}s")
 
 
 if __name__ == "__main__":

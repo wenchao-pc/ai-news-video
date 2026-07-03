@@ -174,26 +174,43 @@ function parseArgs() {
   const tmpDir2 = path.join(ROOT, "output", "_tmp_padded");
   fs.mkdirSync(tmpDir2, { recursive: true });
 
-  // Step 2a: 给每段视频加尾延（最后一帧冻结 + 静音）
-  console.log("  给每段加尾延（1秒停顿 + 转场区）...");
+  // Step 2a: 给每段视频加尾延
+  // seg 0: 末尾加 padDur=2s（1s 停顿 + 1s acrossfade 区）
+  // seg i>0: 开头加 td=1s 静音冻结帧 + 末尾加 pauseDur=1s
+  //   → acrossfade d=td 交叉淡化的是 silence→silence，不会有音量衰减
+  console.log("  给每段加 padding（seg0 尾延 2s / 其他 前置 1s + 尾延 1s）...");
   const paddedSegs: { file: string; duration: number }[] = [];
   for (let i = 0; i < segments.length; i++) {
     const seg = segments[i];
     const paddedFile = path.join(tmpDir2, `padded_${i}.mp4`);
-    execSync(
-      `ffmpeg -y -i "${seg.file}" ` +
-      `-vf "tpad=stop_mode=clone:stop_duration=${padDur}" ` +
-      `-af "apad=pad_dur=${padDur}" ` +
-      `-c:v libx264 -pix_fmt yuv420p -r 30 -crf 23 -preset fast ` +
-      `-c:a aac -b:a 128k -shortest "${paddedFile}"`,
-      { stdio: "pipe" }
-    );
+
+    if (i === 0) {
+      // seg 0: 只加末尾 padDur
+      execSync(
+        `ffmpeg -y -i "${seg.file}" ` +
+        `-vf "tpad=stop_mode=clone:stop_duration=${padDur}" ` +
+        `-af "apad=pad_dur=${padDur}" ` +
+        `-c:v libx264 -pix_fmt yuv420p -r 30 -crf 23 -preset fast ` +
+        `-c:a aac -b:a 128k -shortest "${paddedFile}"`,
+        { stdio: "pipe" }
+      );
+    } else {
+      // seg i>0: 前置 td 秒 + 末尾 pauseDur 秒
+      execSync(
+        `ffmpeg -y -i "${seg.file}" ` +
+        `-vf "tpad=start_mode=clone:start_duration=${td}:stop_mode=clone:stop_duration=${pauseDur}" ` +
+        `-af "adelay=${Math.round(td * 1000)}|${Math.round(td * 1000)},apad=pad_dur=${pauseDur}" ` +
+        `-c:v libx264 -pix_fmt yuv420p -r 30 -crf 23 -preset fast ` +
+        `-c:a aac -b:a 128k -shortest "${paddedFile}"`,
+        { stdio: "pipe" }
+      );
+    }
     paddedSegs.push({ file: paddedFile, duration: seg.duration + padDur });
   }
 
-  // Step 2b: 视频用 xfade，音频用 concat（不做交叉淡化）
-  let videoFilter = "";
-  let audioFilter = "";
+  // Step 2b: xfade（视频）+ acrossfade（音频）拼接
+  // acrossfade d=td：因为前置 padding 是静音，交叉淡化的是 silence→silence，音量不衰减
+  let filter = "";
   const inputs = paddedSegs.map((s, i) => `-i "${s.file}"`).join(" ");
 
   let cumulativeDur = paddedSegs[0].duration;
@@ -206,32 +223,22 @@ function parseArgs() {
     const vOut = i < paddedSegs.length - 1 ? `[v${i}]` : "[vout]";
     const aOut = i < paddedSegs.length - 1 ? `[a${i}]` : "[aout]";
 
-    // 视频：xfade 转场
-    videoFilter += `${prevVideoLabel}[${i}:v]xfade=transition=${trans}:duration=${td}:offset=${offset.toFixed(3)}${vOut};`;
-    // 音频：concat 直接拼接（不淡入不淡出）
-    audioFilter += `${prevAudioLabel}[${i}:a]concat=n=2:v=0:a=1${aOut};`;
+    filter += `${prevVideoLabel}[${i}:v]xfade=transition=${trans}:duration=${td}:offset=${offset.toFixed(3)}${vOut};`;
+    filter += `${prevAudioLabel}[${i}:a]acrossfade=d=${td}:c1=tri:c2=tri${aOut};`;
 
     prevVideoLabel = vOut;
     prevAudioLabel = aOut;
     cumulativeDur += paddedSegs[i].duration - td;
   }
 
-  videoFilter = videoFilter.replace(/;$/, "");
-  audioFilter = audioFilter.replace(/;$/, "");
+  filter = filter.replace(/;$/, "");
 
-  // 合并 filter：xfade 和 concat 各自独立链路
-  // 注意：xfafe 会缩短视频时长（每次减 td），但音频 concat 保持原始长度
-  // 为保持音画同步，音频也需要和视频一样缩短。用 atrim 截断到视频总时长
-  const totalVideoDur = cumulativeDur;
-
-  const filter = `${videoFilter};${audioFilter};[aout]atrim=duration=${totalVideoDur.toFixed(3)}[afinal]`;
-
-  const totalDur = totalVideoDur;
+  const totalDur = cumulativeDur;
   console.log(`  预计总时长: ${totalDur.toFixed(1)}s`);
 
   const ffmpegCmd =
     `ffmpeg -y ${inputs} -filter_complex "${filter}" ` +
-    `-map "[vout]" -map "[afinal]" ` +
+    `-map "[vout]" -map "[aout]" ` +
     `-c:v libx264 -pix_fmt yuv420p -r 30 -crf 23 -preset medium ` +
     `-c:a aac -b:a 128k ` +
     `-movflags +faststart ` +
