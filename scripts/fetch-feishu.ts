@@ -25,7 +25,7 @@ function parseArgs() {
   };
   return {
     url: get("url", ""),
-    out: get("out", path.join(ROOT, "output", "news-data.json")),
+    out: get("out"),  // 不给默认值，undefined 时自动创建 run 目录
     maxItems: parseInt(get("max-items", "8")),
   };
 }
@@ -180,14 +180,30 @@ function extractDate(html: string): string {
   return match ? match[1] : new Date().toISOString().slice(0, 10);
 }
 
+// ── 生成 run 目录 ──
+function createRunDir(): string {
+  const ts = new Date();
+  const pad = (n: number) => String(n).padStart(2, "0");
+  const runId =
+    `run-${ts.getFullYear()}${pad(ts.getMonth() + 1)}${pad(ts.getDate())}` +
+    `-${pad(ts.getHours())}${pad(ts.getMinutes())}${pad(ts.getSeconds())}`;
+  const runDir = path.join(ROOT, "output", runId);
+  fs.mkdirSync(runDir, { recursive: true });
+  return runDir;
+}
+
 // ── 主流程 ──
 (async () => {
-  const { url, out: outPath, maxItems } = parseArgs();
+  const { url, out: outPathArg, maxItems } = parseArgs();
 
   if (!url) {
     console.error("✘ 请提供飞书文档链接: --url \"https://...\"");
     process.exit(1);
   }
+
+  // 创建 run 目录（除非用户显式指定了 --out）
+  const runDir = outPathArg ? path.dirname(outPathArg) : createRunDir();
+  const outPath = outPathArg || path.join(runDir, "news-data.json");
 
   // Step 1: 提取 token
   const token = extractDocToken(url);
@@ -212,12 +228,12 @@ function extractDate(html: string): string {
   const newsData = {
     date,
     intro: {
-      title: "今日技术情报雷达",
-      subtitle: `${date} · 共${items.length}条精选资讯`,
+      title: "AI 开源速递",
+      subtitle: `${date} · 共${items.length}个精选项目`,
     },
     outro: {
-      title: "今天的情报就到这里",
-      subtitle: "关注频道 · 明天见 👋",
+      title: "今天就到这里",
+      subtitle: "明天同一时间见 👋",
     },
     items,
     // ⚠ transitions 和 items[].script 需由 AI Agent 补充
@@ -228,5 +244,6 @@ function extractDate(html: string): string {
   fs.mkdirSync(path.dirname(outPath), { recursive: true });
   fs.writeFileSync(outPath, JSON.stringify(newsData, null, 2));
   console.log(`\n✅ 数据已保存 → ${outPath}`);
-  console.log(`⚠ 下一步: 需由 AI Agent 读取此文件，生成口播稿(script)和转场(transitions)字段`);
+  console.log(`📁 run 目录: ${runDir}`);
+  console.log(`⚠ 下一步: Agent 读取 ${outPath}，生成口播稿(script)和转场(transitions)字段，写回后传给 make-video.ts --data`);
 })();

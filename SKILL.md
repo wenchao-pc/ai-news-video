@@ -30,11 +30,11 @@ cd ~/.hermes/skills/ai-news-video
 npx tsx scripts/fetch-feishu.ts --url "https://xxx.feishu.cn/docx/TOKEN" --max-items 30
 ```
 
-输出 `output/news-data.json`（每条含 `raw_text`，不含 `script`）。
+自动创建 `output/run-YYYYMMDD-HHmmss/` 目录，输出 `news-data.json` 到其中。脚本会打印 run 目录路径。
 
 ### Step 2: Agent 生成口播稿 + 转场（写回 JSON）
 
-Agent 读取 `output/news-data.json`，完成以下工作并写回：
+Agent 读取 `output/run-XXX/news-data.json`，完成以下工作并写回：
 
 1. 为每条 `raw_text` 生成 `script`（口播稿）
 2. 生成 `intro.script`、`outro.script`
@@ -47,10 +47,10 @@ Agent 读取 `output/news-data.json`，完成以下工作并写回：
 ### Step 3: 生成视频
 
 ```bash
-npx tsx scripts/make-video.ts --data output/news-data.json
+npx tsx scripts/make-video.ts --data output/run-XXX/news-data.json
 ```
 
-一键完成 PPT 渲染 → TTS 配音 → FFmpeg 合成。输出到 `output/run-YYYYMMDD-HHmmss/final.mp4`。
+输出到同一个 run 目录：`final.mp4`、`cover.png`、`slides/`、`audio/`。
 
 ### Step 4: 生成字幕 + 烧录硬字幕
 
@@ -70,7 +70,7 @@ $FFMPEG -y -i output/run-XXX/final.mp4 \
   output/run-XXX/final-sub.mp4
 ```
 
-封面图在同一步骤生成：`output/run-XXX/cover.png`（同时复制一份到 `output/cover.png`）。
+封面图在 Step 3 生成：`output/run-XXX/cover.png`。
 
 ### 其他命令
 
@@ -188,4 +188,5 @@ npx tsx scripts/make-video.ts --out /tmp/my-video.mp4
 
 - **mmx TTS 传文本**用 `--text-file`，不要用 `--text`（shell 转义不可靠）
 - **ffmpeg subtitles filter 报错**：Homebrew ffmpeg 不带 libass，用 imageio-ffmpeg 的静态 ffmpeg
+- **ffmpeg `subtitles` filter 的 `force_style` 引号陷阱**：在 shell 里 `-vf` 中的 `force_style` 逗号会被当 filter 分隔符，各种转义都不稳定。最稳的方式是用 Python `subprocess.run([ffmpeg, ..., "-vf", vf])` 直接传参数（不经 shell）
 - **不要 `brew reinstall ffmpeg --build-from-source`**：慢且可能失败，imageio-ffmpeg 即装即用
