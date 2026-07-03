@@ -55,9 +55,9 @@ npx tsx scripts/make-video.ts --data output/run-XXX/news-data.json
 ### Step 4: 生成字幕 + 烧录硬字幕
 
 ```bash
-# 生成 SRT 字幕
+# 生成 SRT 字幕（无标点，更干净的阅读体验）
 python3 scripts/generate-srt.py \
-  --data output/news-data.json \
+  --data output/run-XXX/news-data.json \
   --audio-dir output/run-XXX/audio \
   --out output/run-XXX/subtitles.srt
 
@@ -158,12 +158,13 @@ npx tsx scripts/make-video.ts --out /tmp/my-video.mp4
 
 ## 输出与交付
 
-**每次任务的标准输出格式**（4 项，缺一不可）：
+**每次任务的标准输出格式**（5 项，缺一不可）：
 
 1. **标题**：`AI开源速递-YYYY.MM.DD`
 2. **简介**：200 字以内，概括本期亮点
-3. **封面图**：MEDIA: cover.png
-4. **视频**：MEDIA: final-sub.mp4（带硬字幕版）
+3. **话题**：3-5 个 `#话题标签`，提炼本期关键词
+4. **封面图**：MEDIA: cover.png
+5. **视频**：MEDIA: final-sub.mp4（带硬字幕版）
 
 - 视频默认直接发给用户，不上传飞书
 - 视频 >20MB 时用 `ffmpeg -crf 28` 压缩
