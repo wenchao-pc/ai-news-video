@@ -9,7 +9,7 @@
   - seg i 起始 = sum(dur[0..i-1]) + i * 1.0
 
 用法:
-  python3 scripts/generate-srt.py --data output/news-data.json --audio-dir output/run-XXX/audio --out output/subtitles.srt
+  python3 scripts/generate-srt.py --data output/news-data.json --audio-dir output/run-XXX/audio --out output/run-XXX/subtitles.srt
 """
 import argparse
 import json

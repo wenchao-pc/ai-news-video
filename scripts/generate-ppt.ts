@@ -194,8 +194,11 @@ function itemToVars(item: any, dateStr: string): Record<string, string> {
     const p = await ctx2.newPage();
     await p.goto("file://" + coverFile, { waitUntil: "networkidle" });
     await p.waitForTimeout(1000);
-    const coverPath = path.join(ROOT, "output", "cover.png");
+    // cover.png 输出到 PPT 输出目录（与 slides 同级），同时复制一份到 output/cover.png 保持兼容
+    const coverPath = path.join(outDir, "..", "cover.png");
+    const coverPathLegacy = path.join(ROOT, "output", "cover.png");
     await p.screenshot({ path: coverPath });
+    try { fs.copyFileSync(coverPath, coverPathLegacy); } catch {}
     await p.close();
     await browser2.close();
     fs.unlinkSync(coverFile);

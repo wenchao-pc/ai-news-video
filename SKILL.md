@@ -70,7 +70,7 @@ $FFMPEG -y -i output/run-XXX/final.mp4 \
   output/run-XXX/final-sub.mp4
 ```
 
-封面图在同一步骤生成：`output/cover.png`。
+封面图在同一步骤生成：`output/run-XXX/cover.png`（同时复制一份到 `output/cover.png`）。
 
 ### 其他命令
 
