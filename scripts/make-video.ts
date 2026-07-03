@@ -45,19 +45,9 @@ const skipPpt = hasFlag("--skip-ppt");
 const skipAudio = hasFlag("--skip-audio");
 const skipVideo = hasFlag("--skip-video");
 
-// ── 每次运行生成独立的输出目录，避免覆盖历史结果 ──
-//   命名规则: run-YYYYMMDD-HHmmss
-//   用户可通过 --out 指定完整路径覆盖（跳过独立目录逻辑）
+// ── 输出目录：直接用 --data 所在目录 ──
 const userOut = getParam("out");
-const usingUserOut = !!userOut;
-
-const ts = new Date();
-const pad = (n: number) => String(n).padStart(2, "0");
-const runId =
-  `run-${ts.getFullYear()}${pad(ts.getMonth() + 1)}${pad(ts.getDate())}` +
-  `-${pad(ts.getHours())}${pad(ts.getMinutes())}${pad(ts.getSeconds())}`;
-
-const runDir = path.join(ROOT, "output", runId);
+const runDir = path.dirname(path.resolve(data));
 const slidesDir = path.join(runDir, "slides");
 const audioDir = path.join(runDir, "audio");
 const finalOut = userOut || path.join(runDir, "final.mp4");
@@ -77,7 +67,7 @@ console.log(`   数据: ${data}`);
 console.log(`   模板: ${template}`);
 console.log(`   音色: ${voice}`);
 console.log(`   转场: ${transition} (${transitionDur}s)`);
-if (!usingUserOut) {
+if (!userOut) {
   console.log(`   输出目录: ${runDir}`);
 } else {
   console.log(`   输出文件: ${finalOut}`);
